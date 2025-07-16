@@ -1,0 +1,75 @@
+services:
+  traefik:
+    image: traefik:v3.4.4
+    ports:
+      # Exposes port 80 for incomming web requests
+      - 80:80
+      # The Web UI port http://0.0.0.0:8080 (enabled by --api.insecure=true)
+      #- 8080:8080
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./app/traefik/conf/traefik.yml:/etc/traefik/traefik.yml
+
+  exo:
+    image: exoplatform/exo-community:7.0.2
+    environment:
+      - EXO_PROXY_VHOST
+      - EXO_PROXY_PORT
+      - EXO_DB_HOST
+      - EXO_PROXY_SSL
+      - EXO_DB_TYPE
+      - EXO_DB_NAME
+      - EXO_DB_USER
+      - EXO_DB_PASSWORD
+      - EXO_JVM_LOG_GC_ENABLED
+      - EXO_ES_HOST
+      - EXO_JVM_SIZE_MAX
+      - JAVA_OPTS
+    labels:
+        - traefik.enable=true
+        - traefik.http.routers.exo.rule=Host(`$EXO_PROXY_VHOST`)
+        - traefik.http.routers.exo.entrypoints=web
+        - traefik.http.routers.exo.service=exo
+        - traefik.http.services.exo.loadbalancer.server.port=$EXO_PROXY_PORT
+    volumes:
+      - exo_data:/srv/exo
+      - exo_codec:/etc/exo/codec:rw
+      - exo_logs:/var/log/exo
+
+  mysql:
+    image: mysql:8.4.5
+    environment:
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_DATABASE
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  es:
+    image: elasticsearch:8.14.3
+    environment:
+      - ES_JAVA_OPTS
+      - node.name
+      - cluster.name
+      - cluster.initial_master_nodes
+      - network.host
+      - xpack.security.enabled
+    volumes:
+      - search_data:/usr/share/elasticsearch/data:rw
+
+  onlyoffice:
+    image: onlyoffice/documentserver:8.2
+    environment:
+      - JWT_ENABLED
+      - JWT_SECRET
+      - SECURE_LINK_SECRET
+      - ALLOW_PRIVATE_IP_ADDRESS
+
+volumes: 
+  exo_data:
+  exo_codec:
+  exo_logs:
+  mysql_data:
+  search_data:
